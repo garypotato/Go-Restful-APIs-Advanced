@@ -1,11 +1,14 @@
 package main
 
-import "log"
+import (
+	"another-restful-api/internal/env"
+	"log"
+)
 
 func main() {
 	app := &application{
 		config: config{
-			addr: ":8080",
+			addr: env.GetString("ADDR", ":8080"),
 		},
 	}
 
