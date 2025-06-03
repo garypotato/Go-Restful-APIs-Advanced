@@ -14,6 +14,11 @@ func New(addr string, maxOpenConns, maxIdleConns int, maxIdleTime string) (*sql.
 		return nil, err
 	}
 
+	// Enable foreign key constraints
+	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		return nil, err
+	}
+
 	db.SetMaxOpenConns(maxOpenConns)
 	duration, err := time.ParseDuration(maxIdleTime)
 	if err != nil {
@@ -42,7 +47,8 @@ func createUsersTable(db *sql.DB) error {
 		username TEXT NOT NULL UNIQUE,
 		email TEXT NOT NULL UNIQUE,
 		password TEXT NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -59,7 +65,9 @@ func createPostsTable(db *sql.DB) error {
 		user_id INTEGER NOT NULL,
 		title TEXT NOT NULL,
 		content TEXT NOT NULL,
+		tags TEXT DEFAULT NULL,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 	);`
 
