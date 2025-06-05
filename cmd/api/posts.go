@@ -9,32 +9,37 @@ import (
 )
 
 type CreatePostPayload struct {
-	Title   string   `json:"title"`
-	Content string   `json:"content"`
+	Title   string   `json:"title" validate:"required,max=100"`
+	Content string   `json:"content" validate:"required,max=1000"`
 	Tags    []string `json:"tags,omitempty"`
 }
 
 func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request) {
-	var postload CreatePostPayload
-	if err := readJSON(w, r, &postload); err != nil {
-		writeJSONError(w, http.StatusBadRequest, err.Error())
+	var payload CreatePostPayload
+	if err := readJSON(w, r, &payload); err != nil {
+		app.badRequestError(w, r, err)
+		return
+	}
+
+	if err := Validate.Struct(payload); err != nil {
+		app.badRequestError(w, r, err)
 		return
 	}
 
 	post := &store.Post{
-		Title:   postload.Title,
-		Content: postload.Content,
+		Title:   payload.Title,
+		Content: payload.Content,
 		UserID:  1, // Assuming a static user ID for simplicity
-		Tags:    postload.Tags,
+		Tags:    payload.Tags,
 	}
 
 	if err := app.store.Posts.Create(r.Context(), post); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		app.internalServerError(w, r, err)
 		return
 	}
 
 	if err := writeJSON(w, http.StatusCreated, post); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		app.internalServerError(w, r, err)
 		return
 	}
 }
@@ -43,22 +48,29 @@ func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	postID, err := strconv.ParseInt(chi.URLParam(r, "postID"), 10, 64)
 	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid post ID")
+		app.internalServerError(w, r, err)
 		return
 	}
 
 	post, err := app.store.Posts.GetByID(ctx, postID)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		app.internalServerError(w, r, err)
 		return
 	}
 	if post == nil {
-		writeJSONError(w, http.StatusNotFound, "post not found")
+		app.notFoundHandler(w, r)
 		return
 	}
 
+	comments, err := app.store.Comments.GetByPostID(ctx, postID)
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+	post.Comments = comments
+
 	if err := writeJSON(w, http.StatusOK, post); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		app.internalServerError(w, r, err)
 		return
 	}
 }
